@@ -7,8 +7,9 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Use standalone output for better deployment on Render
-  output: "standalone",
+  // Remove standalone for simpler Render deployment
+  // If you want to use standalone, uncomment the line below and update startCommand in render.yaml
+  // output: "standalone",
 };
 
 export default nextConfig;
