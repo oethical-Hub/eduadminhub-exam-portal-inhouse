@@ -1,17 +1,24 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.eduadminhub.com/api";
+import { getApiBaseUrl, isStandalone, requiresInstitutionId } from "@/config/mode";
 
-interface ApiResponse<T = any> {
+//======= Get API Base URL based on mode
+const API_BASE_URL = getApiBaseUrl();
+
+interface ApiResponse<T = unknown> {
   success: boolean;
   message: string;
   data?: T;
   user?: any;
   auth?: string;
+  token?: string; 
   userImage?: string;
   total?: number;
 }
 
-//==== Get institution ID from cookie
+//==== Get institution ID from cookie (only for integrated mode)
 function getInstitutionId(): string | null {
+  //===== Standalone mode doesn't need institution ID
+  if (isStandalone) return null;
+  
   if (typeof document === "undefined") return null;
   const nameEQ = "institutionId" + "=";
   const ca = document.cookie.split(";");
@@ -25,10 +32,10 @@ function getInstitutionId(): string | null {
   return null;
 }
 
-async function request<T = any>(
+async function request<T = unknown>(
   endpoint: string,
   method: string = "GET",
-  body?: any,
+  body?: unknown,
   token?: string | null,
   institutionId?: string | null
 ): Promise<ApiResponse<T>> {
@@ -37,14 +44,17 @@ async function request<T = any>(
     "Content-Type": "application/json",
   };
 
+  //==== Add Authorization header if token exists
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  //==== Add institution ID header
-  const instId = institutionId || getInstitutionId();
-  if (instId) {
-    headers["x-institution-id"] = instId;
+  //==== Add institution ID header only for integrated mode
+  if (requiresInstitutionId()) {
+    const instId = institutionId || getInstitutionId();
+    if (instId) {
+      headers["x-institution-id"] = instId;
+    }
   }
 
   const options: RequestInit = {
@@ -65,23 +75,29 @@ async function request<T = any>(
     }
 
     return data;
-  } catch (error: any) {
-    console.error("API Error:", error);
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error("API Error:", err);
     throw error;
   }
 }
 
 export const api = {
-  get: <T = any>(endpoint: string, token?: string | null, institutionId?: string | null) =>
+  get: <T = unknown>(endpoint: string, token?: string | null, institutionId?: string | null) =>
     request<T>(endpoint, "GET", undefined, token, institutionId),
 
-  post: <T = any>(endpoint: string, body?: any, token?: string | null, institutionId?: string | null) =>
+  post: <T = unknown>(endpoint: string, body?: unknown, token?: string | null, institutionId?: string | null) =>
     request<T>(endpoint, "POST", body, token, institutionId),
 
-  put: <T = any>(endpoint: string, body?: any, token?: string | null, institutionId?: string | null) =>
+  put: <T = unknown>(endpoint: string, body?: unknown, token?: string | null, institutionId?: string | null) =>
     request<T>(endpoint, "PUT", body, token, institutionId),
 
-  delete: <T = any>(endpoint: string, token?: string | null, institutionId?: string | null) =>
+  patch: <T = unknown>(endpoint: string, body?: unknown, token?: string | null, institutionId?: string | null) =>
+    request<T>(endpoint, "PATCH", body, token, institutionId),
+
+  delete: <T = unknown>(endpoint: string, token?: string | null, institutionId?: string | null) =>
     request<T>(endpoint, "DELETE", undefined, token, institutionId),
 };
 
+//==== Export mode info for components
+export { isStandalone, API_BASE_URL };

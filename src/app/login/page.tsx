@@ -2,22 +2,32 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { api } from "@/lib/api";
 import { Institution } from "@/types/institution";
 import LoginForm from "@/components/login/LoginForm";
+import StandaloneLoginForm from "@/components/login/StandaloneLoginForm";
 
 export default function LoginPage() {
+  const searchParams = useSearchParams();
+  const mode = searchParams.get("mode"); // "standalone" or "integrated" or null
+
   const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [selectedInstitution, setSelectedInstitution] = useState<Institution | null>(null);
 
-  // Fetch institutions on mount
+  // Check if standalone mode from query param
+  const isStandaloneMode = mode === "standalone";
+
+  // Fetch institutions only for integrated mode
   useEffect(() => {
-    fetchInstitutions();
-  }, []);
+    if (!isStandaloneMode) {
+      fetchInstitutions();
+    }
+  }, [isStandaloneMode]);
 
   const fetchInstitutions = async () => {
     try {
@@ -28,9 +38,10 @@ export default function LoginPage() {
       } else {
         toast.error(response.message || "Failed to fetch institutions");
       }
-    } catch (error: any) {
-      console.error("Error fetching institutions:", error);
-      toast.error(error.message || "Failed to fetch institutions");
+    } catch (error: unknown) {
+      const err = error as Error;
+      console.error("Error fetching institutions:", err);
+      toast.error(err.message || "Failed to fetch institutions");
     } finally {
       setLoading(false);
     }
@@ -56,13 +67,20 @@ export default function LoginPage() {
         </Button>
       </div>
 
-      <LoginForm
-        institutions={institutions}
-        loading={loading}
-        onInstitutionSelect={handleInstitutionSelect}
-        selectedInstitution={selectedInstitution}
-        onBack={handleBack}
-      />
+      {/* Render form based on query param mode */}
+      {isStandaloneMode ? (
+        // Standalone Mode: Simple email + password login
+        <StandaloneLoginForm />
+      ) : (
+        // Integrated Mode: Institution + OTP login
+        <LoginForm
+          institutions={institutions}
+          loading={loading}
+          onInstitutionSelect={handleInstitutionSelect}
+          selectedInstitution={selectedInstitution}
+          onBack={handleBack}
+        />
+      )}
     </div>
   );
 }

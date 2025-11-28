@@ -3,15 +3,15 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from "react";
 import { toast } from "react-toastify";
 import { useRouter } from "next/navigation";
-import { api } from "@/lib/api";
 import { decodeToken, isTokenExpired, DEFAULT_TOKEN_EXPIRY_SECONDS, getCookie, setCookie, deleteCookie } from "@/lib/auth";
-import { User, UserRole } from "@/types/auth";
+import { User } from "@/types/auth";
 
 interface AuthContextType {
   token: string | null | undefined;
   user: User | null;
   institutionId: string | null;
   institutionName: string | null;
+  isStandaloneMode: boolean;
   login: (token: string, user: User, institutionId: string, institutionName?: string) => void;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
@@ -22,6 +22,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   institutionId: null,
   institutionName: null,
+  isStandaloneMode: false,
   login: () => {},
   logout: async () => {},
   isAuthenticated: false,
@@ -34,6 +35,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [institutionName, setInstitutionName] = useState<string | null>(null);
   const router = useRouter();
 
+  // Check if standalone mode based on institutionId
+  const isStandaloneMode = institutionId === "standalone";
+
   // Initialize when app loads
   useEffect(() => {
     const storedToken = getCookie("authToken");
@@ -41,8 +45,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const storedInstitutionName = getCookie("institutionName");
     const storedUser = getCookie("userData");
 
-    if (storedToken && storedInstitutionId) {
-      const decoded = decodeToken(storedToken);
+    // Check if standalone mode
+    const isStandalone = storedInstitutionId === "standalone";
+
+    // In standalone mode, just need token; in integrated mode, need both token and institutionId
+    const hasRequiredData = isStandalone 
+      ? Boolean(storedToken) 
+      : Boolean(storedToken && storedInstitutionId);
+
+    if (hasRequiredData) {
+      const decoded = decodeToken(storedToken!);
 
       if (decoded && !isTokenExpired(decoded)) {
         setToken(storedToken);
@@ -53,37 +65,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           try {
             setUser(JSON.parse(storedUser));
           } catch {
-            // If user data is invalid, use decoded token data
-            if (decoded.user) {
-              setUser({
-                _id: decoded.user._id,
-                institutionId: decoded.user.institutionId,
-                username: decoded.user.email,
-                firstName: "",
-                lastName: "",
-                primaryMobileNumber: "",
-                email: decoded.user.email,
-                role: decoded.user.role,
-                permission: decoded.user.permission,
-                status: true,
-                userId: decoded.user.userId,
-                currentAcademicYearId: decoded.user.currentAcademicYearId,
-              });
-            }
+            // If user data is invalid, try to extract from token
+            // This handles both standalone and integrated token formats
+            console.error("Failed to parse stored user data");
           }
         }
       } else {
-        // Token expired or invalid
-        deleteCookie("authToken");
-        deleteCookie("institutionId");
-        deleteCookie("institutionName");
-        deleteCookie("userData");
-        setToken(null);
-        setUser(null);
-        setInstitutionId(null);
-        setInstitutionName(null);
+        // Token expired or invalid - clear everything
+        clearAuth();
       }
     } else {
+      // No valid auth data
       setToken(null);
       setUser(null);
       setInstitutionId(null);
@@ -95,12 +87,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const newToken = getCookie("authToken");
       const newInstitutionId = getCookie("institutionId");
       const newUser = getCookie("userData");
+      const newInstitutionName = getCookie("institutionName");
 
-      if (newToken && newInstitutionId) {
-        const decoded = decodeToken(newToken);
+      const isStandaloneCheck = newInstitutionId === "standalone";
+      const hasRequiredDataForChange = isStandaloneCheck 
+        ? Boolean(newToken) 
+        : Boolean(newToken && newInstitutionId);
+
+      if (hasRequiredDataForChange) {
+        const decoded = decodeToken(newToken!);
         if (decoded && !isTokenExpired(decoded)) {
           setToken(newToken);
           setInstitutionId(newInstitutionId);
+          setInstitutionName(newInstitutionName);
           if (newUser) {
             try {
               setUser(JSON.parse(newUser));
@@ -109,22 +108,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           }
         } else {
-          setToken(null);
-          setUser(null);
-          setInstitutionId(null);
-          setInstitutionName(null);
+          clearAuthState();
         }
       } else {
-        setToken(null);
-        setUser(null);
-        setInstitutionId(null);
-        setInstitutionName(null);
+        clearAuthState();
       }
     };
 
     window.addEventListener("authChange", handleAuthChange);
     return () => window.removeEventListener("authChange", handleAuthChange);
   }, []);
+
+  // Clear auth state helper
+  const clearAuthState = () => {
+    setToken(null);
+    setUser(null);
+    setInstitutionId(null);
+    setInstitutionName(null);
+  };
+
+  // Clear auth cookies and state
+  const clearAuth = () => {
+    deleteCookie("authToken");
+    deleteCookie("institutionId");
+    deleteCookie("institutionName");
+    deleteCookie("userData");
+    clearAuthState();
+  };
 
   // Auto-logout on token expiry
   useEffect(() => {
@@ -156,9 +166,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    // Calculate expiry time
+    // Calculate expiry time (default 24 hours if not in token)
     const expiryTime = decoded.exp ? decoded.exp * 1000 - Date.now() : DEFAULT_TOKEN_EXPIRY_SECONDS * 1000;
-    const days = Math.ceil(expiryTime / (24 * 60 * 60 * 1000));
+    const days = Math.max(1, Math.ceil(expiryTime / (24 * 60 * 60 * 1000)));
 
     // Store in cookies
     setCookie("authToken", newToken, days);
@@ -168,6 +178,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     setCookie("userData", JSON.stringify(newUser), days);
 
+    // Update state
     setToken(newToken);
     setUser(newUser);
     setInstitutionId(newInstitutionId);
@@ -184,23 +195,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!token && !user) return;
 
     try {
-      if (token) {
-        // Call logout API if needed
-        // await api.post("/user/logout", {}, token);
-      }
-    } catch (err: any) {
+      // Call logout API if needed (for integrated mode)
+      // if (token && !isStandaloneMode) {
+      //   await api.post("/user/logout", {}, token);
+      // }
+    } catch (err) {
       console.error("Logout error:", err);
     } finally {
-      // Clear cookies
-      deleteCookie("authToken");
-      deleteCookie("institutionId");
-      deleteCookie("institutionName");
-      deleteCookie("userData");
-
-      setToken(null);
-      setUser(null);
-      setInstitutionId(null);
-      setInstitutionName(null);
+      // Clear everything
+      clearAuth();
 
       // Dispatch event for multi-tab sync
       if (typeof window !== "undefined" && window.dispatchEvent) {
@@ -214,7 +217,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [router, token, user]);
 
+  // Check if authenticated
   const isAuthenticated = useMemo(() => {
+    // For standalone mode (institutionId === "standalone"), just need token and user
+    // For integrated mode, need all three
+    if (institutionId === "standalone") {
+      return Boolean(token && user);
+    }
     return Boolean(token && user && institutionId);
   }, [token, user, institutionId]);
 
@@ -224,11 +233,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       user,
       institutionId,
       institutionName,
+      isStandaloneMode,
       login,
       logout,
       isAuthenticated,
     }),
-    [token, user, institutionId, institutionName, login, logout, isAuthenticated]
+    [token, user, institutionId, institutionName, isStandaloneMode, login, logout, isAuthenticated]
   );
 
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
@@ -241,4 +251,3 @@ export const useAuth = () => {
   }
   return context;
 };
-

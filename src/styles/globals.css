@@ -403,5 +403,129 @@
   .feature-icon {
     @apply h-5 w-5 text-green-600 dark:text-green-400;
   }
+
+  /* ===== Standalone Login Styles ===== */
+  .standalone-login-icon-circle {
+    @apply h-16 w-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center;
+  }
+
+  .standalone-login-icon {
+    @apply h-8 w-8 text-green-600 dark:text-green-400;
+  }
+
+  .btn-standalone {
+    @apply w-full bg-green-600 hover:bg-green-700 text-white;
+  }
+
+  .btn-standalone:disabled {
+    @apply bg-green-400 cursor-not-allowed;
+  }
+
+  /* ===== Info Box Styles ===== */
+  .info-box {
+    @apply p-3 rounded-lg border;
+  }
+
+  .info-box-blue {
+    @apply bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800;
+  }
+
+  .info-box-green {
+    @apply bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800;
+  }
+
+  .info-box-yellow {
+    @apply bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800;
+  }
+
+  .info-box-icon {
+    @apply h-5 w-5 mt-0.5 flex-shrink-0;
+  }
+
+  .info-box-icon-blue {
+    @apply text-blue-600 dark:text-blue-400;
+  }
+
+  .info-box-icon-green {
+    @apply text-green-600 dark:text-green-400;
+  }
+
+  .info-box-title {
+    @apply font-medium mb-1;
+  }
+
+  .info-box-title-blue {
+    @apply text-blue-700 dark:text-blue-300;
+  }
+
+  .info-box-content-blue {
+    @apply text-blue-600 dark:text-blue-400 space-y-0.5;
+  }
+
+  .info-box-code {
+    @apply bg-blue-100 dark:bg-blue-900 px-1 rounded text-xs;
+  }
+
+  /* ===== Form Error Styles ===== */
+  .form-error {
+    @apply text-sm text-destructive mt-1;
+  }
+
+  .input-error {
+    @apply border-destructive focus:ring-destructive;
+  }
+
+  /* ===== Form Input Wrapper ===== */
+  .input-wrapper {
+    @apply relative;
+  }
+
+  .input-icon-left {
+    @apply absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground;
+  }
+
+  /* ===== Checkbox Styles ===== */
+  .checkbox-wrapper {
+    @apply flex items-center space-x-2;
+  }
+
+  .checkbox-input {
+    @apply h-4 w-4 rounded border-gray-300;
+  }
+
+  .checkbox-label {
+    @apply text-sm font-normal cursor-pointer;
+  }
+
+  /* ===== Divider with Text ===== */
+  .divider-with-text {
+    @apply text-center mt-4 pt-4 border-t;
+  }
+
+  .divider-text {
+    @apply text-sm text-muted-foreground;
+  }
+
+  .divider-link {
+    @apply text-blue-600 hover:underline font-medium;
+  }
+
+  /* ===== Spinner & Button Icons ===== */
+  .spinner {
+    @apply mr-2 h-4 w-4 animate-spin;
+  }
+
+  .btn-icon {
+    @apply mr-2 h-4 w-4;
+  }
+
+  /* ===== Password Input ===== */
+  .password-toggle-btn {
+    @apply absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors;
+  }
+
+  .password-toggle-icon {
+    @apply h-4 w-4;
+  }
 }
 

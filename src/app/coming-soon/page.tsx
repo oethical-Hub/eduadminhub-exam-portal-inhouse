@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { ArrowLeft, Link as LinkIcon, Zap, CheckCircle2, Clock } from "lucide-react";
+import { ArrowLeft, Link as LinkIcon, Zap, CheckCircle2 } from "lucide-react";
 
 export default function ComingSoonPage() {
   return (
@@ -43,8 +43,8 @@ export default function ComingSoonPage() {
                   </div>
                   <div>
                     <CardTitle className="text-2xl">Standalone Solution</CardTitle>
-                    <Badge variant="outline" className="mt-2">
-                      Coming Soon
+                    <Badge variant="default" className="mt-2 bg-green-500 hover:bg-green-600">
+                      Available
                     </Badge>
                   </div>
                 </div>
@@ -64,7 +64,7 @@ export default function ComingSoonPage() {
                   </div>
                   <div className="feature-item">
                     <CheckCircle2 className="feature-icon" />
-                    <span>Ready for market deployment</span>
+                    <span>Your own backend (Node.js + MongoDB)</span>
                   </div>
                   <div className="feature-item">
                     <CheckCircle2 className="feature-icon" />
@@ -72,8 +72,8 @@ export default function ComingSoonPage() {
                   </div>
                 </div>
                 <div className="pt-4 border-t">
-                  <Button disabled className="w-full" variant="outline">
-                    Coming Soon
+                  <Button asChild className="w-full bg-green-600 hover:bg-green-700">
+                    <Link href="/login?mode=standalone">Login with Standalone</Link>
                   </Button>
                 </div>
               </CardContent>
@@ -88,8 +88,8 @@ export default function ComingSoonPage() {
                   </div>
                   <div>
                     <CardTitle className="text-2xl">EduAdminHub Integration</CardTitle>
-                    <Badge variant="default" className="mt-2 bg-green-500 hover:bg-green-600">
-                      Available Now
+                    <Badge variant="default" className="mt-2 bg-blue-500 hover:bg-blue-600">
+                      Available
                     </Badge>
                   </div>
                 </div>
@@ -118,7 +118,7 @@ export default function ComingSoonPage() {
                 </div>
                 <div className="pt-4 border-t">
                   <Button asChild className="w-full">
-                    <Link href="/login">Login with EduAdminHub</Link>
+                    <Link href="/login?mode=integrated">Login with EduAdminHub</Link>
                   </Button>
                 </div>
               </CardContent>
@@ -129,4 +129,3 @@ export default function ComingSoonPage() {
     </div>
   );
 }
-
