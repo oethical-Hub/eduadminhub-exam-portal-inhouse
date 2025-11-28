@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, LogIn, Mail, Building2, Shield, ArrowLeft } from "lucide-react";
-import { api } from "@/lib/api";
+import { integratedApi } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { Institution } from "@/types/institution";
 import { User } from "@/types/auth";
@@ -63,7 +63,7 @@ export default function LoginForm({
     try {
       setCredentialsLoading(true);
 
-      const response = await api.post(
+      const response = await integratedApi.post(
         "/loginUser/userId",
         {
           username,
@@ -104,7 +104,7 @@ export default function LoginForm({
     try {
       setOtpLoading(true);
 
-      const response = await api.post(
+      const response = await integratedApi.post(
         "/loginUser/verifyOtp",
         {
           otp,

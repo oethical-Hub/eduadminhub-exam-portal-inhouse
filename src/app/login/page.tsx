@@ -1,17 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
-import { api } from "@/lib/api";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import { integratedApi } from "@/lib/api";
 import { Institution } from "@/types/institution";
 import LoginForm from "@/components/login/LoginForm";
 import StandaloneLoginForm from "@/components/login/StandaloneLoginForm";
 
-export default function LoginPage() {
+/**
+ * Login Content Component
+ * Separated to use useSearchParams inside Suspense boundary
+ */
+function LoginContent() {
   const searchParams = useSearchParams();
   const mode = searchParams.get("mode"); // "standalone" or "integrated" or null
 
@@ -32,7 +36,7 @@ export default function LoginPage() {
   const fetchInstitutions = async () => {
     try {
       setLoading(true);
-      const response = await api.get<Institution[]>("/getListInstitute/getSpecificList");
+      const response = await integratedApi.get<Institution[]>("/getListInstitute/getSpecificList");
       if (response.success && response.data) {
         setInstitutions(response.data);
       } else {
@@ -56,17 +60,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="page-container relative">
-      {/* Back to Home Navigation */}
-      <div className="absolute top-4 right-4 z-10">
-        <Button asChild variant="ghost" size="sm" className="nav-back-button">
-          <Link href="/">
-            <ArrowLeft className="h-4 w-4" />
-            Back to Home
-          </Link>
-        </Button>
-      </div>
-
+    <>
       {/* Render form based on query param mode */}
       {isStandaloneMode ? (
         // Standalone Mode: Simple email + password login
@@ -81,6 +75,45 @@ export default function LoginPage() {
           onBack={handleBack}
         />
       )}
+    </>
+  );
+}
+
+/**
+ * Loading Fallback Component
+ */
+function LoginLoading() {
+  return (
+    <div className="login-form-wrapper">
+      <div className="loading-container">
+        <Loader2 className="loading-spinner" />
+        <span className="ml-2">Loading...</span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Login Page
+ * Wrapped with Suspense for useSearchParams compatibility in Next.js 15
+ */
+export default function LoginPage() {
+  return (
+    <div className="page-container relative">
+      {/* Back to Home Navigation */}
+      <div className="absolute top-4 right-4 z-10">
+        <Button asChild variant="ghost" size="sm" className="nav-back-button">
+          <Link href="/">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Home
+          </Link>
+        </Button>
+      </div>
+
+      {/* Suspense boundary for useSearchParams */}
+      <Suspense fallback={<LoginLoading />}>
+        <LoginContent />
+      </Suspense>
     </div>
   );
 }

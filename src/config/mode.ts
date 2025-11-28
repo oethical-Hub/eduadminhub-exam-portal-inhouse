@@ -4,22 +4,29 @@
  * This file handles switching between:
  * - Standalone Mode: Independent backend (Node.js + MongoDB)
  * - Integrated Mode: EduAdminHub backend
+ * 
+ * Mode can be set via:
+ * 1. Environment variable: NEXT_PUBLIC_MODE (default mode)
+ * 2. Query parameter: ?mode=standalone or ?mode=integrated (runtime override)
  */
 
 export type AppMode = "standalone" | "integrated";
 
-// Get mode from environment variable (default: integrated for backward compatibility)
-export const APP_MODE: AppMode = 
+// Default mode from environment variable (fallback: integrated)
+export const DEFAULT_MODE: AppMode = 
   (process.env.NEXT_PUBLIC_MODE as AppMode) || "integrated";
 
-// Mode flags
-export const isStandalone = APP_MODE === "standalone";
-export const isIntegrated = APP_MODE === "integrated";
+// API URLs from environment
+export const STANDALONE_API_URL = 
+  process.env.NEXT_PUBLIC_STANDALONE_API_URL || "http://localhost:5000/api/v1";
 
-// API Configuration based on mode
+export const INTEGRATED_API_URL = 
+  process.env.NEXT_PUBLIC_API_URL || "https://api.eduadminhub.com/api";
+
+// API Configuration for each mode
 export const API_CONFIG = {
   standalone: {
-    baseUrl: process.env.NEXT_PUBLIC_STANDALONE_API_URL || "http://localhost:5000/api/v1",
+    baseUrl: STANDALONE_API_URL,
     requiresInstitutionId: false,
     authEndpoints: {
       login: "/auth/login",
@@ -31,7 +38,7 @@ export const API_CONFIG = {
     },
   },
   integrated: {
-    baseUrl: process.env.NEXT_PUBLIC_API_URL || "https://api.eduadminhub.com/api",
+    baseUrl: INTEGRATED_API_URL,
     requiresInstitutionId: true,
     authEndpoints: {
       login: "/loginUser/userId",
@@ -41,12 +48,17 @@ export const API_CONFIG = {
   },
 };
 
-// Get current API config
-export const getApiConfig = () => API_CONFIG[APP_MODE];
+// Get API config for a specific mode
+export const getApiConfig = (mode: AppMode = DEFAULT_MODE) => API_CONFIG[mode];
 
-// Get API base URL
-export const getApiBaseUrl = () => getApiConfig().baseUrl;
+// Get API base URL for a specific mode
+export const getApiBaseUrl = (mode: AppMode = DEFAULT_MODE) => API_CONFIG[mode].baseUrl;
 
-// Check if institution ID is required
-export const requiresInstitutionId = () => getApiConfig().requiresInstitutionId;
+// Check if institution ID is required for a specific mode
+export const requiresInstitutionId = (mode: AppMode = DEFAULT_MODE) => 
+  API_CONFIG[mode].requiresInstitutionId;
 
+// Legacy exports for backward compatibility (uses default mode)
+export const APP_MODE = DEFAULT_MODE;
+export const isStandalone = DEFAULT_MODE === "standalone";
+export const isIntegrated = DEFAULT_MODE === "integrated";

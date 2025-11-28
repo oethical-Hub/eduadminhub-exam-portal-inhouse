@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Loader2, Mail, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { api } from "@/lib/api";
+import { integratedApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import Footer from "@/components/common/Footer";
 
@@ -76,7 +76,7 @@ export default function ForgotPasswordForm() {
     try {
       setLoading(true);
 
-      const response = await api.post(
+      const response = await integratedApi.post(
         "/user/forgot-password",
         { email: email.trim() }
       );
