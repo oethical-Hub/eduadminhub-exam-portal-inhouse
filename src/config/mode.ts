@@ -41,9 +41,9 @@ export const API_CONFIG = {
     baseUrl: INTEGRATED_API_URL,
     requiresInstitutionId: true,
     authEndpoints: {
-      login: "/loginUser/userId",
-      verifyOtp: "/loginUser/verifyOtp",
-      getInstitutions: "/getListInstitute/getSpecificList",
+      login: "/api/loginUser/userId",
+      verifyOtp: "/api/loginUser/verifyOtp",
+      getInstitutions: "/api/getListInstitute/getSpecificList",
     },
   },
 };
