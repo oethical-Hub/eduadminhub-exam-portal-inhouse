@@ -7,6 +7,7 @@ import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { integratedApi } from "@/lib/api";
+import { API_ENDPOINTS } from "@/lib/api/endpoints";
 import { Institution } from "@/types/institution";
 import LoginForm from "@/components/login/LoginForm";
 import StandaloneLoginForm from "@/components/login/StandaloneLoginForm";
@@ -36,7 +37,7 @@ function LoginContent() {
   const fetchInstitutions = async () => {
     try {
       setLoading(true);
-      const response = await integratedApi.get<Institution[]>("/getListInstitute/getSpecificList");
+      const response = await integratedApi.get<Institution[]>(API_ENDPOINTS.auth.getInstitutions);
       if (response.success && response.data) {
         setInstitutions(response.data);
       } else {

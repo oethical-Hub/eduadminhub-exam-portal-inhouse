@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,59 +19,110 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { FileQuestion, Plus, Search, Edit, Trash2, Eye } from "lucide-react";
+import { FileQuestion, Plus, Search, Edit, Trash2, Loader2 } from "lucide-react";
 import { Question, QuestionType, Difficulty } from "@/types/question";
-import { dummyQuestions, searchQuestions } from "@/data/dummyQuestions";
 import { formatDateTime } from "@/utils/formatDate";
+import { questionBankApi } from "@/lib/api/questionBank";
+import { useAuth } from "@/context/AuthContext";
+import { toast } from "react-toastify";
 
 interface QuestionListProps {
   readonly onAddQuestion: () => void;
   readonly onEditQuestion: (question: Question) => void;
   readonly onDeleteQuestion: (question: Question) => void;
+  readonly refreshKey?: number; // Key to trigger refresh
 }
 
 export default function QuestionList({
   onAddQuestion,
   onEditQuestion,
   onDeleteQuestion,
+  refreshKey = 0,
 }: QuestionListProps) {
+  const { token, institutionId } = useAuth();
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<QuestionType | "all">("all");
   const [difficultyFilter, setDifficultyFilter] = useState<Difficulty | "all">("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const limit = 10;
 
-  // Get unique categories
+  // Get unique categories from questions
   const categories = useMemo(() => {
-    const cats = new Set(dummyQuestions.map((q) => q.category));
+    const cats = new Set(questions.map((q) => q.category));
     return Array.from(cats).sort();
-  }, []);
+  }, [questions]);
 
-  // Filter questions
-  const filteredQuestions = useMemo(() => {
-    let filtered = [...dummyQuestions];
-
-    // Search filter
-    if (searchTerm.trim()) {
-      filtered = searchQuestions(searchTerm);
+  // Fetch questions from API
+  const fetchQuestions = async () => {
+    if (!token || !institutionId) {
+      setLoading(false);
+      return;
     }
 
-    // Type filter
-    if (typeFilter !== "all") {
-      filtered = filtered.filter((q) => q.type === typeFilter);
-    }
+    try {
+      setLoading(true);
+      const filters: any = {
+        page,
+        limit,
+        isActive: true,
+      };
 
-    // Difficulty filter
-    if (difficultyFilter !== "all") {
-      filtered = filtered.filter((q) => q.difficulty === difficultyFilter);
-    }
+      if (typeFilter !== "all") {
+        filters.questionType = typeFilter;
+      }
 
-    // Category filter
-    if (categoryFilter !== "all") {
-      filtered = filtered.filter((q) => q.category === categoryFilter);
-    }
+      if (difficultyFilter !== "all") {
+        filters.difficulty = difficultyFilter;
+      }
 
-    return filtered;
-  }, [searchTerm, typeFilter, difficultyFilter, categoryFilter]);
+      if (categoryFilter !== "all") {
+        filters.category = categoryFilter;
+      }
+
+      if (searchTerm.trim()) {
+        filters.search = searchTerm.trim();
+      }
+
+      const response = await questionBankApi.getAll(filters, token, institutionId);
+      setQuestions(response.data);
+      if (response.pagination) {
+        setTotalPages(response.pagination.totalPages);
+        setTotal(response.pagination.total);
+      }
+    } catch (error: any) {
+      console.error("Error fetching questions:", error);
+      toast.error(error.message || "Failed to load questions");
+      setQuestions([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch questions on mount and when filters change
+  useEffect(() => {
+    fetchQuestions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, institutionId, page, typeFilter, difficultyFilter, categoryFilter, refreshKey]);
+
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (page === 1) {
+        fetchQuestions();
+      } else {
+        setPage(1);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  const filteredQuestions = questions;
 
   const getTypeBadgeColor = (type: QuestionType) => {
     const colors: Record<QuestionType, string> = {
@@ -200,12 +251,17 @@ export default function QuestionList({
       <Card className="card-container">
         <CardHeader>
           <CardTitle>
-            Questions ({filteredQuestions.length})
+            Questions ({loading ? "..." : total})
           </CardTitle>
           <CardDescription>All questions in your bank</CardDescription>
         </CardHeader>
         <CardContent>
-          {filteredQuestions.length === 0 ? (
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-muted-foreground">Loading questions...</span>
+            </div>
+          ) : filteredQuestions.length === 0 ? (
             <div className="empty-state">
               <FileQuestion className="h-12 w-12 text-muted-foreground mb-4 mx-auto" />
               <p className="mb-4">
@@ -313,6 +369,33 @@ export default function QuestionList({
                 ))}
               </div>
             </TooltipProvider>
+          )}
+
+          {/* Pagination */}
+          {!loading && filteredQuestions.length > 0 && totalPages > 1 && (
+            <div className="flex items-center justify-between mt-6 pt-4 border-t">
+              <div className="text-sm text-muted-foreground">
+                Page {page} of {totalPages} ({total} total)
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

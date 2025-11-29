@@ -21,7 +21,7 @@ export const STANDALONE_API_URL =
   process.env.NEXT_PUBLIC_STANDALONE_API_URL || "http://localhost:5000/api/v1";
 
 export const INTEGRATED_API_URL = 
-  process.env.NEXT_PUBLIC_API_URL || "https://api.eduadminhub.com/api";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8082";
 
 // API Configuration for each mode
 export const API_CONFIG = {
