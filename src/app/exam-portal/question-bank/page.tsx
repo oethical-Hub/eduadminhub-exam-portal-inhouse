@@ -5,11 +5,14 @@ import { toast } from "react-toastify";
 import QuestionList from "./components/QuestionList";
 import QuestionFormDialog from "./components/QuestionFormDialog";
 import { Question } from "@/types/question";
-import { dummyQuestions } from "@/data/dummyQuestions";
+import { questionBankApi } from "@/lib/api/questionBank";
+import { useAuth } from "@/context/AuthContext";
 
 export default function QuestionBankPage() {
+  const { token, institutionId } = useAuth();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0); // Used to trigger list refresh
 
   const handleAddQuestion = () => {
     setEditingQuestion(null);
@@ -21,20 +24,30 @@ export default function QuestionBankPage() {
     setIsFormOpen(true);
   };
 
-  const handleDeleteQuestion = (question: Question) => {
+  const handleDeleteQuestion = async (question: Question) => {
+    if (!token || !institutionId) {
+      toast.error("Authentication required. Please log in.");
+      return;
+    }
+
     if (window.confirm(`Are you sure you want to delete this question?\n\n"${question.question.substring(0, 50)}..."`)) {
-      // TODO: Replace with actual API call
-      console.log("Deleting question:", question.id);
-      toast.success("Question deleted successfully!");
-      // In real implementation, refresh the list here
+      try {
+        await questionBankApi.delete(question.id, token, institutionId);
+        toast.success("Question deleted successfully!");
+        // Trigger refresh by updating key
+        setRefreshKey((prev) => prev + 1);
+      } catch (error: any) {
+        console.error("Error deleting question:", error);
+        toast.error(error.message || "Failed to delete question. Please try again.");
+      }
     }
   };
 
   const handleFormSuccess = () => {
-    // TODO: Replace with actual API call to refresh list
-    toast.success(editingQuestion ? "Question updated!" : "Question created!");
     setIsFormOpen(false);
     setEditingQuestion(null);
+    // Trigger refresh by updating key
+    setRefreshKey((prev) => prev + 1);
   };
 
   const handleFormClose = () => {
@@ -45,6 +58,7 @@ export default function QuestionBankPage() {
   return (
     <>
       <QuestionList
+        refreshKey={refreshKey}
         onAddQuestion={handleAddQuestion}
         onEditQuestion={handleEditQuestion}
         onDeleteQuestion={handleDeleteQuestion}

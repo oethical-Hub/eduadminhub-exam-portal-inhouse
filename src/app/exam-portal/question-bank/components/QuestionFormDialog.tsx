@@ -1,19 +1,16 @@
 "use client";
 
-import { useEffect } from "react";
-import { useForm, type SubmitHandler } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -21,13 +18,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { X, Plus } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/context/AuthContext";
+import { Class, Subject, mastersApi } from "@/lib/api/masters";
+import { questionBankApi } from "@/lib/api/questionBank";
 import {
-  questionFormSchema,
   QuestionFormData,
+  questionFormSchema,
 } from "@/lib/validations/question";
 import { Question } from "@/types/question";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Plus, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useForm, type SubmitHandler } from "react-hook-form";
 import { toast } from "react-toastify";
 
 interface QuestionFormDialogProps {
@@ -43,12 +46,44 @@ export default function QuestionFormDialog({
   onClose,
   onSuccess,
 }: QuestionFormDialogProps) {
+  const { token, institutionId } = useAuth();
+  const [classes, setClasses] = useState<Class[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [loadingMasters, setLoadingMasters] = useState(false);
+
+  // Fetch classes and subjects when dialog opens
+  useEffect(() => {
+    if (open && token && institutionId) {
+      fetchMasters();
+    }
+  }, [open, token, institutionId]);
+
+  const fetchMasters = async () => {
+    if (!token || !institutionId) return;
+    
+    try {
+      setLoadingMasters(true);
+      const [classesData, subjectsData] = await Promise.all([
+        mastersApi.getClasses(token, institutionId),
+        mastersApi.getSubjects(token, institutionId),
+      ]);
+      setClasses(classesData);
+      setSubjects(subjectsData);
+    } catch (error: any) {
+      console.error("Error fetching masters:", error);
+      toast.error("Failed to load classes/subjects. Please try again.");
+    } finally {
+      setLoadingMasters(false);
+    }
+  };
+
   const {
     register,
     handleSubmit,
     watch,
     setValue,
     reset,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<QuestionFormData>({
     resolver: zodResolver(questionFormSchema) as any,
@@ -64,6 +99,8 @@ export default function QuestionFormDialog({
       explanation: "",
       options: ["", ""],
       correctAnswer: "",
+      classId: null,
+      subjectId: null,
     } as QuestionFormData,
   });
 
@@ -73,6 +110,18 @@ export default function QuestionFormDialog({
     : [];
   const tags = watch("tags") || [];
   const tagInput = watch("tagInput" as any) || "";
+  const selectedClassId = watch("classId" as any);
+  const selectedSubjectId = watch("subjectId" as any);
+
+  // Auto-populate category when subject is selected
+  useEffect(() => {
+    if (selectedSubjectId) {
+      const selectedSubject = subjects.find((s) => s.subjectId === selectedSubjectId);
+      if (selectedSubject && selectedSubject.subjectName) {
+        setValue("category", selectedSubject.subjectName);
+      }
+    }
+  }, [selectedSubjectId, subjects, setValue]);
 
   // Reset form when question changes
   useEffect(() => {
@@ -86,11 +135,13 @@ export default function QuestionFormDialog({
         marks: question.marks,
         negativeMarks: question.negativeMarks || 0,
         difficulty: question.difficulty,
-        category: question.category,
+        category: question.category || "",
         tags: question.tags || [],
         explanation: question.explanation || "",
         options: question.options || (question.type === "true-false" ? ["True", "False"] : ["", ""]),
         correctAnswer: correctAnswer as any,
+        classId: question.classId as any,
+        subjectId: question.subjectId as any,
       });
     } else if (open) {
       reset({
@@ -104,27 +155,68 @@ export default function QuestionFormDialog({
         explanation: "",
         options: ["", ""],
         correctAnswer: "",
+        classId: null,
+        subjectId: null,
       });
     }
   }, [question, open, reset]);
 
   const onSubmit: SubmitHandler<QuestionFormData> = async (data) => {
+    if (!token || !institutionId) {
+      toast.error("Authentication required. Please log in.");
+      return;
+    }
+
     try {
-      // TODO: Replace with actual API call
-      console.log("Question data:", data);
+      // Get ALL form values including classId and subjectId
+      // Since we registered them with hidden inputs, they should be in both data and getValues()
+      const allFormValues = getValues() as any;
+      const formData = data as any;
       
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // Get classId and subjectId - check both sources to be safe
+      const classIdFromForm = formData.classId || allFormValues.classId;
+      const subjectIdFromForm = formData.subjectId || allFormValues.subjectId;
       
-      toast.success(
-        question ? "Question updated successfully!" : "Question created successfully!"
-      );
+      const classIdValue = classIdFromForm && classIdFromForm !== "none" && classIdFromForm !== null 
+        ? classIdFromForm 
+        : null;
+      const subjectIdValue = subjectIdFromForm && subjectIdFromForm !== "none" && subjectIdFromForm !== null 
+        ? subjectIdFromForm 
+        : null;
+
+      // Map form data to API payload
+      const apiPayload: any = {
+        questionType: data.type,
+        question: data.question,
+        questionImage: data.imageUrl || null,
+        options: data.options,
+        correctAnswer: data.correctAnswer,
+        explanation: data.explanation || "",
+        marks: data.marks,
+        negativeMarks: data.negativeMarks || 0,
+        difficulty: data.difficulty,
+        category: data.category,
+        tags: data.tags || [],
+        classId: classIdValue,
+        subjectId: subjectIdValue,
+      };
+
+      if (question) {
+        // Update existing question
+        await questionBankApi.update(question.id, apiPayload, token, institutionId);
+        toast.success("Question updated successfully!");
+      } else {
+        // Create new question
+        await questionBankApi.create(apiPayload, token, institutionId);
+        toast.success("Question created successfully!");
+      }
+
       onSuccess();
       onClose();
       reset();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving question:", error);
-      toast.error("Failed to save question. Please try again.");
+      toast.error(error.message || "Failed to save question. Please try again.");
     }
   };
 
@@ -449,6 +541,63 @@ export default function QuestionFormDialog({
             </div>
           </div>
 
+          {/* Class and Subject */}
+          {/* Hidden inputs to register classId and subjectId with React Hook Form */}
+          <input type="hidden" {...register("classId" as any)} />
+          <input type="hidden" {...register("subjectId" as any)} />
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="classId">Class</Label>
+              <Select
+                value={watch("classId" as any) || "none"}
+                onValueChange={(value) => {
+                  setValue("classId" as any, value === "none" ? null : value, { shouldValidate: true });
+                }}
+                disabled={loadingMasters}
+              >
+                <SelectTrigger id="classId">
+                  <SelectValue placeholder="Select class" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {classes.map((cls) => (
+                    <SelectItem key={cls.classId} value={cls.classId}>
+                      {cls.className} - {cls.section}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="subjectId">Subject (Category)</Label>
+              <Select
+                value={watch("subjectId" as any) || "none"}
+                onValueChange={(value) => {
+                  const finalValue = value === "none" ? null : value;
+                  setValue("subjectId" as any, finalValue, { shouldValidate: true });
+                  const selectedSubject = subjects.find((s) => s.subjectId === value);
+                  if (selectedSubject && selectedSubject.subjectName) {
+                    setValue("category", selectedSubject.subjectName);
+                  }
+                }}
+                disabled={loadingMasters}
+              >
+                <SelectTrigger id="subjectId">
+                  <SelectValue placeholder="Select subject" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {subjects.map((subject) => (
+                    <SelectItem key={subject.subjectId} value={subject.subjectId}>
+                      {subject.subjectName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           {/* Difficulty and Category */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -471,11 +620,11 @@ export default function QuestionFormDialog({
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="category">Category *</Label>
+              <Label htmlFor="category">Category (Auto-filled from Subject)</Label>
               <Input
                 id="category"
                 {...register("category")}
-                placeholder="e.g., Mathematics, Science"
+                placeholder="Auto-filled from subject or enter manually"
                 className={errors.category ? "border-destructive" : ""}
               />
               {errors.category && (

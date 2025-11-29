@@ -37,9 +37,8 @@ const baseQuestionSchema = z.object({
   difficulty: difficultyEnum,
   category: z
     .string()
-    .min(2, "Category must be at least 2 characters")
     .max(100, "Category must not exceed 100 characters")
-    .regex(/^[a-zA-Z0-9\s\-_]+$/, "Category can only contain letters, numbers, spaces, hyphens, and underscores"),
+    .optional(),
   tags: z
     .array(z.string().min(1).max(50))
     .max(10, "Maximum 10 tags allowed")
